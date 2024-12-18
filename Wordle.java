@@ -4,8 +4,14 @@ import java.util.Scanner;
 
 public class Wordle {
     public static final String[][] allWordsLists = {wordsList.A, wordsList.B, wordsList.C, wordsList.D, wordsList.E, wordsList.F, wordsList.G, wordsList.H, wordsList.I, wordsList.J, wordsList.K, wordsList.L, wordsList.M, wordsList.N, wordsList.O, wordsList.P, wordsList.Q, wordsList.R, wordsList.S, wordsList.T, wordsList.U, wordsList.V, wordsList.W, wordsList.Y, wordsList.Z};
+    private static int[] guessDistribution = {0, 0, 0, 0, 0, 0};
+    private static int played = 0;
+    private static int wins = 0;
+    private static int streak = 0;
+    private static int maxStreak = 0;
 
     public static void main(String[] args) throws FileNotFoundException {
+        loadPrompt();
         randomWordSelection();
     }
 
@@ -39,25 +45,33 @@ public class Wordle {
                 guesses[attempts * 2 + 1] = wordFeedback;
                 displayGuesses(guesses);
                 attempts++;
-                if (guessedWord.equals(word)) {
+                if (attempts == 6 || guessedWord.equals(word)) {
                     gameLoop = false;
-                    System.out.println("You win! Your attempt count was " + attempts + ".");
-                } else if (attempts == 6) {
-                    gameLoop = false;
-                    System.out.println("You lost! The word was " + word + ".");
+                    stats(attempts, word, guessedWord);
                 }
             }
         }
-        playAgainPrompt();
     }
 
     public static String giveFeedback(String guessedWord, String word) {
         StringBuilder feedback = new StringBuilder();
+        int[] letterCount = new int[26];
+        boolean[] correctPosition = new boolean[5];
         for (int i = 0; i < 5; i++) {
+            char currentChar = word.charAt(i);
+            letterCount[currentChar - 'A']++;
             if (guessedWord.charAt(i) == word.charAt(i)) {
+                correctPosition[i] = true;
+                letterCount[currentChar - 'A']--;
+            }
+        }
+        for (int i = 0; i < 5; i++) {
+            char guessedChar = guessedWord.charAt(i);
+            if (correctPosition[i]) {
                 feedback.append("*");
-            } else if (word.contains(String.valueOf(guessedWord.charAt(i)))) {
+            } else if (letterCount[guessedChar - 'A'] > 0) {
                 feedback.append("+");
+                letterCount[guessedChar - 'A']--;
             } else {
                 feedback.append("-");
             }
@@ -79,7 +93,8 @@ public class Wordle {
         if (getYesOrNo("\nPlay Again? ")) {
             randomWordSelection();
         } else {
-            System.out.println("\n\n\n--------- Thanks for playing! ---------");
+            savePrompt();
+            System.out.println("\n--------- Thanks for playing! ---------");
         }
     }
 
@@ -99,5 +114,72 @@ public class Wordle {
             }
         }
         return false;
+    }
+
+    public static void stats(int guesses, String word, String guess) throws FileNotFoundException {
+        if (guess.equals(word)) {
+            System.out.println("\nYou win! Attempts: " + guesses);
+            guessDistribution[guesses - 1]++;
+            wins++;
+            streak++;
+            if (streak > maxStreak) {
+                maxStreak = streak;
+            }
+        } else {
+            System.out.println("\nYou lose! The word was " + word + ".");
+            streak = 0;
+        }
+        played++;
+        displayStats();
+        playAgainPrompt();
+    }
+
+    public static void displayStats() {
+        System.out.println("--------------- STATISTICS ---------------");
+        System.out.println("Played: " + played + "     Win Percentage: " + ((wins * 100) / played) + "%");
+        System.out.println("Current Streak: " + streak + "     Max Streak: " + maxStreak);
+        System.out.println("----------- GUESS DISTRIBUTION -----------");
+        for (int i = 0; i < 6; i++) {
+            System.out.print((i + 1) + ": ");
+            for (int j = 0; j < guessDistribution[i]; j++) {
+                System.out.print("[]");
+            }
+            System.out.println(" " + guessDistribution[i]);
+        }
+        System.out.println("------------------------------------------");
+    }
+
+    public static void loadPrompt() throws FileNotFoundException {
+        File file = new File("./saveData.txt");
+        Scanner save = new Scanner(file);
+        if (file.length() == 0) {
+            PrintStream write = new PrintStream(file);
+            for (int i = 0; i < 10; i++) {
+                write.println(0);
+            }
+        } else if (getYesOrNo("Would you like to load your stats? ")) {
+            for (int i = 0; i < 6; i++) {
+                guessDistribution[i] = save.nextInt();
+            }
+            played = save.nextInt();
+            wins = save.nextInt();
+            streak = save.nextInt();
+            maxStreak = save.nextInt();
+            System.out.println("---- SAVE DATA SUCCESSFULLY LOADED ----");
+        }
+    }
+
+    public static void savePrompt() throws FileNotFoundException {
+        if (getYesOrNo("Would you like to save your statistics? (WARNING: Existing save data will be lost!) ")) {
+            PrintStream save = new PrintStream(new File("./saveData.txt"));
+            for (int i = 0; i < 6; i++) {
+                save.println(guessDistribution[i]);
+            }
+            save.println(played);
+            save.println(wins);
+            save.println(streak);
+            save.println(maxStreak);
+            System.out.println("------- DATA SUCCESSFULLY SAVED -------");
+        }
     }
 }
